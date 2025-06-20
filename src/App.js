@@ -1,32 +1,28 @@
 // src/App.js
 import React, { useEffect, useRef, useState } from 'react';
-import './App.css'; // 如有對應 CSS，可保留
+import 'bootstrap/dist/css/bootstrap.min.css';
 
 function App() {
   const [trades, setTrades] = useState([]);
   const logRef = useRef(null);
 
   useEffect(() => {
-    // 1. 與本地 Relay Server 建立連線
     const socket = new WebSocket('ws://localhost:8080');
     socket.binaryType = 'blob';
 
     socket.addEventListener('open', () => {
-      console.log('✅ WebSocket 已連線到 ws://localhost:8080');
+      console.log('✅ 已連線到 Relay Server');
     });
 
     socket.addEventListener('message', async e => {
-      // 2. 接到的如果是 Blob，要先轉文字
       const raw = e.data instanceof Blob ? await e.data.text() : e.data;
       let msg;
       try { msg = JSON.parse(raw); }
       catch { return; }
 
-      // 3. 只處理 Binance 逐筆成交（trade）事件
       if (msg.e === 'trade') {
         const time = new Date(msg.E).toLocaleTimeString();
         const item = { price: msg.p, qty: msg.q, time };
-        // 保留最新 50 筆
         setTrades(prev => [item, ...prev].slice(0, 50));
       }
     });
@@ -37,35 +33,38 @@ function App() {
     return () => socket.close();
   }, []);
 
-  // 4. 每次 trades 更新，自動捲到最上方
   useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = 0;
   }, [trades]);
 
   return (
-    <div style={{ padding: '1rem', fontFamily: 'sans-serif' }}>
-      <h1>Binance BTC/USDT 實時成交</h1>
+    <div className="container py-4">
+      <h1 className="mb-4 text-center">Binance BTC/USDT 實時成交</h1>
+
       <div
         ref={logRef}
-        style={{
-          height: '70vh',
-          overflowY: 'auto',
-          border: '1px solid #ddd',
-          padding: '0.5rem',
-          background: '#fafafa'
-        }}
+        className="list-group overflow-auto border"
+        style={{ maxHeight: '70vh' }}
       >
-        {trades.map((t, i) => (
-          <div key={i} style={{ marginBottom: 4 }}>
-            <span style={{ color: '#888' }}>[{t.time}]</span>{' '}
-            <span style={{ fontWeight: 'bold' }}>
-              成交 {t.price} USDT × {t.qty}
-            </span>
-          </div>
-        ))}
-        {trades.length === 0 && (
-          <div style={{ color: '#aaa' }}>等待實時資料中…</div>
-        )}
+        {trades.length === 0
+          ? <div className="list-group-item text-center text-muted">
+              等待實時資料中…
+            </div>
+          : trades.map((t, i) => (
+              <div
+                key={i}
+                className="list-group-item d-flex justify-content-between align-items-center"
+              >
+                <div>
+                  <small className="text-muted me-2">[{t.time}]</small>
+                  <span className="me-2">成交</span>
+                  <span className="badge bg-primary me-1">{t.price}</span>
+                  <span>USDT ×</span>
+                  <span className="badge bg-success ms-1">{t.qty}</span>
+                </div>
+              </div>
+            ))
+        }
       </div>
     </div>
   );
