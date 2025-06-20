@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <title>WebSocket 全功能 Demo</title>
+  <style>
+    body { font-family: sans-serif; padding: 1rem; }
+    #log { max-height: 70vh; overflow-y: auto; border: 1px solid #ccc; padding: .5rem; }
+    #controls { margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>WebSocket 全功能 Demo</h1>
+  <div id="log"></div>
+
+  <div id="controls">
+    <input id="inputMsg" placeholder="輸入訊息..." />
+    <button id="sendBtn">送出</button>
+  </div>
+
+  <script>
+    const logEl = document.getElementById('log');
+    function appendLog(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      logEl.appendChild(div);
+      div.scrollIntoView();
+    }
+
+    // 連線到本機 WebSocket Server
+    // const socket = new WebSocket('ws://localhost:8080');
+    const exchWs = new WebSocket('wss://exchange.example.com/market/ws');
+
+    socket.addEventListener('open', () => appendLog('✅ 已連線到 ws://localhost:8080'));
+    socket.addEventListener('message', e => {
+      let payload;
+      try { payload = JSON.parse(e.data); }
+      catch { payload = { type: 'unknown', data: e.data }; }
+
+      if (payload.type === 'ticker') {
+        appendLog(`[行情 ${payload.data.time}] 價格：${payload.data.price}`);
+      }
+      else if (payload.type === 'info') {
+        appendLog(`ℹ️ ${payload.data}`);
+      }
+      else if (payload.type === 'echo') {
+        appendLog(`↩️ Echo：${payload.data}`);
+      }
+      else {
+        appendLog(`❓ 未知訊息：${e.data}`);
+      }
+    });
+
+    socket.addEventListener('error', e => {
+      appendLog('⚠️ WebSocket 發生錯誤，詳見 console');
+      console.error('WebSocket error:', e);
+    });
+
+    socket.addEventListener('close', e => {
+      appendLog(`🔌 已與伺服器斷線 (code=${e.code}, reason=${e.reason||'無'})`);
+    });
+
+    document.getElementById('sendBtn').onclick = () => {
+      const txt = document.getElementById('inputMsg').value.trim();
+      if (txt && socket.readyState === WebSocket.OPEN) {
+        socket.send(txt);
+        appendLog(`📤 已送出：${txt}`);
+        document.getElementById('inputMsg').value = '';
+      }
+    };
+  </script>
+</body>
+</html>

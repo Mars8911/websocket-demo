@@ -2,57 +2,89 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <title>WebSocket Demo</title>
+  <title>真實交易所實時行情</title>
+  <style>
+    body { font-family: sans-serif; padding: 1rem; }
+    #log {
+      max-height: 80vh;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      padding: .5rem;
+      background: #fafafa;
+    }
+    #log div { margin-bottom: .3rem; }
+    .time { color: #888; }
+    .price { font-weight: bold; }
+    .info { color: #007bff; }
+    .error { color: #d9534f; }
+    .warn { color: #f0ad4e; }
+  </style>
 </head>
 <body>
-  <h1>本機 WebSocket 測試</h1>
-  <div>
-    <input id="inputMsg" placeholder="輸入訊息" />
-    <button id="sendBtn">送出</button>
-  </div>
-  <ul id="log"></ul>
+  <h1>Binance BTC/USDT 實時成交</h1>
+  <div id="log"></div>
 
   <script>
-    // 連線到本機 ws 伺服器
+    const logEl = document.getElementById('log');
+    function appendLog(html) {
+      const div = document.createElement('div');
+      div.innerHTML = html;
+      logEl.appendChild(div);
+      div.scrollIntoView();
+    }
+
+    // 建立 WebSocket 連線
     const socket = new WebSocket('ws://localhost:8080');
 
-    const logEl = document.getElementById('log');
-    const inputEl = document.getElementById('inputMsg');
-    const btnEl = document.getElementById('sendBtn');
+    // 確保 binary frame 以 Blob 接收
+    socket.binaryType = 'blob';
 
-    // 當連線成功
     socket.addEventListener('open', () => {
-      appendLog('已連線到 ws://localhost:8080');
+      appendLog('<span class="info">✅ 已連線到本地 Relay Server</span>');
     });
 
-    // 接收到訊息
-    socket.addEventListener('message', event => {
-      appendLog('收到：' + event.data);
+    socket.addEventListener('error', e => {
+      appendLog('<span class="error">⚠️ 連線錯誤，詳見 console</span>');
+      console.error('WebSocket error:', e);
     });
 
-    // 送出按鈕
-    btnEl.addEventListener('click', () => {
-      const msg = inputEl.value.trim();
-      if (!msg) return;
-      socket.send(msg);
-      appendLog('已送出：' + msg);
-      inputEl.value = '';
+    socket.addEventListener('close', e => {
+      appendLog(`<span class="warn">🔌 已斷線 (code=${e.code})</span>`);
     });
 
-    // 斷線
-    socket.addEventListener('close', () => {
-      appendLog('已與伺服器斷線');
-    });
+    socket.addEventListener('message', async e => {
+      let raw;
+      // 如果收到 Blob，要先轉成文字
+      if (e.data instanceof Blob) {
+        raw = await e.data.text();
+      } else {
+        raw = e.data;
+      }
 
-    socket.addEventListener('error', err => {
-      appendLog('錯誤：' + err.message);
-    });
+      let msg;
+      try {
+        msg = JSON.parse(raw);
+      } catch {
+        return appendLog(`❓ 無法解析 JSON：${raw}`);
+      }
 
-    function appendLog(text) {
-      const li = document.createElement('li');
-      li.textContent = text;
-      logEl.appendChild(li);
-    }
+      // 處理 Binance trade 訊息
+      if (msg.e === 'trade') {
+        const time = new Date(msg.E).toLocaleTimeString();
+        appendLog(
+          `<span class="time">[${time}]</span> ` +
+          `<span class="price">成交 ${msg.p} USDT × ${msg.q}</span>`
+        );
+      }
+      // 處理自訂 info 訊息
+      else if (msg.type === 'info') {
+        appendLog(`<span class="info">ℹ️ ${msg.data}</span>`);
+      }
+      // 其他訊息
+      else {
+        appendLog('🔔 其他訊息：' + JSON.stringify(msg));
+      }
+    });
   </script>
 </body>
 </html>
