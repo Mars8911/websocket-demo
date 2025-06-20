@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <title>WebSocket Demo</title>
+</head>
+<body>
+  <h1>本機 WebSocket 測試</h1>
+  <div>
+    <input id="inputMsg" placeholder="輸入訊息" />
+    <button id="sendBtn">送出</button>
+  </div>
+  <ul id="log"></ul>
+
+  <script>
+    // 連線到本機 ws 伺服器
+    const socket = new WebSocket('ws://localhost:8080');
+
+    const logEl = document.getElementById('log');
+    const inputEl = document.getElementById('inputMsg');
+    const btnEl = document.getElementById('sendBtn');
+
+    // 當連線成功
+    socket.addEventListener('open', () => {
+      appendLog('已連線到 ws://localhost:8080');
+    });
+
+    // 接收到訊息
+    socket.addEventListener('message', event => {
+      appendLog('收到：' + event.data);
+    });
+
+    // 送出按鈕
+    btnEl.addEventListener('click', () => {
+      const msg = inputEl.value.trim();
+      if (!msg) return;
+      socket.send(msg);
+      appendLog('已送出：' + msg);
+      inputEl.value = '';
+    });
+
+    // 斷線
+    socket.addEventListener('close', () => {
+      appendLog('已與伺服器斷線');
+    });
+
+    socket.addEventListener('error', err => {
+      appendLog('錯誤：' + err.message);
+    });
+
+    function appendLog(text) {
+      const li = document.createElement('li');
+      li.textContent = text;
+      logEl.appendChild(li);
+    }
+  </script>
+</body>
+</html>
